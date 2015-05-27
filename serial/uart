@@ -1,0 +1,114 @@
+#!/usr/bin/env python
+
+import fileinput
+import getopt
+import signal
+import sys
+import serial
+import threading
+import time
+
+def usage():
+    print('uart <options>')
+    print('     -d, --device=serial-device  The absolute path of a serial device')
+    print('     -b, --baudrate=baudrate     The baud rate, default 115200')
+    print('     -i, --input=input-file      The input file, default stdin')
+    sys.exit(0)
+
+#
+# Receiver for UART
+#
+class UARTReceiver(threading.Thread):
+    def __init__(this, port):
+        threading.Thread.__init__(this)
+        this.port = port
+        this._exit = threading.Event()
+
+    def run(this):
+        try:
+            while not this._exit.isSet():
+                n = this.port.inWaiting()
+                if n <= 0:
+                    continue
+                sys.stdout.write(str(this.port.read(n)))
+                sys.stdout.flush()
+        except:
+            print('Unexcepted error occurred, UART receiver is going to exit')
+
+    def stop(this):
+        this._exit.set()
+
+#
+# Standard input sender for UART
+#
+class UARTSender():
+    def __init__(this, port):
+        this.port = port
+
+    def pipe(this):
+        while True:
+            line = sys.stdin.readline()
+            print '>>>', line.strip('\n')
+            this.port.write(line)
+
+#
+# File sender for UART
+#
+class UARTFileSender(UARTSender):
+    def __init__(this, port, fi):
+        UARTSender.__init__(this, port)
+        this.fi = fi
+
+    def pipe(this):
+        print 'Reading from', this.fi
+
+        for line in this.fi:
+            line = line.strip('\n')
+            print '>>>', line
+            this.port.write(line)
+            time.sleep(0.5)
+        this.port.write('\n')
+
+def main(argv):
+    device = None
+    infile = None
+    baudrate = 119200
+
+    try:
+        opts, args = getopt.getopt(argv, 'h:d:b:i', ['help', 'device=', 'baudrate=', 'input='])
+    except getopt.GetoptError:
+        usage()
+
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            usage()
+        elif opt in ('-d', '--device'):
+            device = arg
+        elif opt in ('-b', '--baudrate'):
+            baudrate = arg
+        elif opt in ('-i', '--input'):
+            infile = open(arg)
+
+    if device is None:
+        usage()
+
+    port = serial.Serial(device, baudrate=baudrate, timeout=0)
+    receiver = UARTReceiver(port)
+    receiver.start()
+
+    if infile is None:
+        sender = UARTSender(port)
+    else:
+        sender = UARTFileSender(port, infile)
+
+    try:
+        sender.pipe()
+    finally:
+        if infile is not None:
+            infile.close()
+        receiver.stop()
+        receiver.join()
+        port.close()
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
