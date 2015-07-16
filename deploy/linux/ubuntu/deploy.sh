@@ -2,27 +2,23 @@
 
 wtf()
 {
-    echo $@
+    [ $# -gt 0 ] && echo $@
     exit
 }
 
 install()
 {
-    local pkgs=$@
-
-    for pkg in $pkgs; do
-        dpkg -s $pkg > /dev/null 2>&1
+    for pkg in $@; do
+        dpkg -s ${pkg} &> /dev/null
 
         if [ $? -ne 0 ]; then
-            apt-get install -y $pkg || wtf "Install package \'$pkg\' failed"
-        else
-            echo "Package \`$pkg\` already installed"
+            apt-get install -y ${pkg} || wtf
         fi
     done
 }
 
 # update source
-apt-get update || exit -1
+apt-get update || wtf
 
 # install packages
 install python python-virtualenv
@@ -36,5 +32,5 @@ install postgresql
 
 # start nginx if not started
 if [ -f /etc/init.d/nginx ] && [ ! -f /var/run/nginx.pid ]; then
-    /etc/init.d/nginx start || wtf "Start nginx failed"
+    /etc/init.d/nginx start || wtf
 fi
