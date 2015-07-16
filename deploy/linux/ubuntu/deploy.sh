@@ -9,7 +9,7 @@ wtf()
 install()
 {
     for pkg in $@; do
-        dpkg -s ${pkg} &> /dev/null
+        dpkg -s ${pkg} > /dev/null 2>&1
 
         if [ $? -ne 0 ]; then
             apt-get install -y ${pkg} || wtf
