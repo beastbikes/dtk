@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+wtf()
+{
+    echo $@
+    exit
+}
+
+#
+# Update source
+#
+apt-get update || wtf "Update error"
+
+#
+# Install packages
+#
+apt-get install -y curl wget git git-core subversion vim htop nginx postgresql || wtf "Install packages error"
+
+echo "Deploy complete"
